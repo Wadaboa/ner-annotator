@@ -19,14 +19,23 @@ from PyQt5.QtWidgets import (
     QLabel,
     QPushButton,
     QMessageBox,
+    QSizePolicy,
+    QTableWidget,
+    QTableWidgetItem,
     QApplication
 )
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import Qt
 
 
+# Input/output formats
 VALID_IN_FMT = ('.txt')
 VALID_OUT_FMT = ('.json')
+
+# Output table labels
+ENTITY_LABEL = 'Entity'
+SELECTION_START_LABEL = 'Selection start'
+SELECTION_END_LABEL = 'Selection end'
 
 
 def is_file_valid(path, valid_fmts):
@@ -80,7 +89,6 @@ class NERAnnotator(QMainWindow):
     def __init__(self, input_file, output_file, entities):
         # Window settings
         QMainWindow.__init__(self)
-        self.resize(350, 250)
         self.setWindowTitle(self.__class__.__name__)
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -91,8 +99,16 @@ class NERAnnotator(QMainWindow):
         self.annotations = []
         self.current_line = 0
 
-        # Main layout
+        # Stretch widgets
         self.widget = QWidget(self)
+        self.size_policy = QSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self.size_policy.setHorizontalStretch(0)
+        self.size_policy.setVerticalStretch(0)
+        self.widget.setSizePolicy(self.size_policy)
+
+        # Main layout
         self.main_layout = QHBoxLayout(self.widget)
         self.left_layout = QVBoxLayout()
         self.left_top_layout = QVBoxLayout()
@@ -102,12 +118,21 @@ class NERAnnotator(QMainWindow):
         # Left top layout
         self.content_label = QLabel('Content')
         self.content_text = QPlainTextEdit(self.input_file[0])
+        self.content_text.setReadOnly(True)
         self.output_label = QLabel('Output')
-        self.output_text = QPlainTextEdit()
+        self.output_table = QTableWidget(0, 3)
+        self.output_table_labels = {
+            ENTITY_LABEL: 0,
+            SELECTION_START_LABEL: 1,
+            SELECTION_END_LABEL: 2
+        }
+        self.output_table.setHorizontalHeaderLabels(
+            self.output_table_labels.keys()
+        )
         self.left_top_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
         self.left_top_layout.addWidget(self.content_text, 0, Qt.AlignCenter)
         self.left_top_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
-        self.left_top_layout.addWidget(self.output_text, 0, Qt.AlignCenter)
+        self.left_top_layout.addWidget(self.output_table, 0, Qt.AlignCenter)
 
         # Left bottom layout
         self.skip_button = QPushButton('Skip')
@@ -142,6 +167,7 @@ class NERAnnotator(QMainWindow):
         # Main layout
         self.main_layout.addLayout(self.left_layout)
         self.main_layout.addLayout(self.right_layout)
+        self.widget.setLayout(self.main_layout)
         self.setCentralWidget(self.widget)
 
     def skip(self):
@@ -157,21 +183,25 @@ class NERAnnotator(QMainWindow):
         self.current_line += 1
         self.content_text.clear()
         self.content_text.insertPlainText(self.input_file[self.current_line])
-        self.output_text.clear()
+        self.output_table.setRowCount(0)
 
     def record(self):
         '''
         Save the current annotations
         '''
         text = self.content_text.toPlainText()
-        text_entities = self.output_text.toPlainText().splitlines()
         entities = []
-        for ent in text_entities:
-            splitted_ent = ent.split()
+        for i in range(self.output_table.rowCount()):
             entities.append([
-                int(splitted_ent[0]),
-                int(splitted_ent[1]),
-                splitted_ent[2]
+                int(self.output_table.item(
+                    i, self.output_table_labels[SELECTION_START_LABEL]
+                ).text()),
+                int(self.output_table.item(
+                    i,  self.output_table_labels[SELECTION_END_LABEL]
+                ).text()),
+                self.output_table.item(
+                    i, self.output_table_labels[ENTITY_LABEL]
+                ).text()
             ])
         self.annotations.append(
             {
@@ -210,11 +240,23 @@ class NERAnnotator(QMainWindow):
         selection_start = cursor.selectionStart()
         selection_end = cursor.selectionEnd()
         if selection_end - selection_start > 0:
-            self.output_text.moveCursor(QTextCursor.End)
-            self.output_text.insertPlainText(
-                f'{selection_start} {selection_end} {entity}\n'
+            rows = self.output_table.rowCount()
+            self.output_table.insertRow(rows)
+            self.output_table.setItem(
+                rows,
+                self.output_table_labels[SELECTION_START_LABEL],
+                QTableWidgetItem(str(selection_start))
             )
-            self.output_text.moveCursor(QTextCursor.End)
+            self.output_table.setItem(
+                rows,
+                self.output_table_labels[SELECTION_END_LABEL],
+                QTableWidgetItem(str(selection_end))
+            )
+            self.output_table.setItem(
+                rows,
+                self.output_table_labels[ENTITY_LABEL],
+                QTableWidgetItem(entity)
+            )
 
 
 def parse_args():
