@@ -22,6 +22,8 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
+    QFrame,
+    QHeaderView,
     QApplication
 )
 from PyQt5.QtGui import QTextCursor
@@ -89,6 +91,7 @@ class NERAnnotator(QMainWindow):
     def __init__(self, input_file, output_file, entities):
         # Window settings
         QMainWindow.__init__(self)
+        self.resize(1200, 800)
         self.setWindowTitle(self.__class__.__name__)
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -99,28 +102,36 @@ class NERAnnotator(QMainWindow):
         self.annotations = []
         self.current_line = 0
 
-        # Stretch widgets
-        self.widget = QWidget(self)
-        self.size_policy = QSizePolicy(
+        # Main layout
+        self.central_widget = QWidget(self)
+        self.main_layout = QHBoxLayout(self.central_widget)
+        self.left_widget = QWidget(self.central_widget)
+        self.left_layout = QVBoxLayout(self.left_widget)
+        self.right_widget = QWidget(self.central_widget)
+        self.right_layout = QVBoxLayout(self.right_widget)
+
+        # Left layout
+        self.content_label = QLabel(self.left_widget)
+        self.content_label.setText('Content')
+        self.content_label.setSizePolicy(
+            QSizePolicy.Fixed, QSizePolicy.Fixed
+        )
+        self.content_text = QPlainTextEdit(
+            self.input_file[0], self.left_widget
+        )
+        self.content_text.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
-        self.size_policy.setHorizontalStretch(0)
-        self.size_policy.setVerticalStretch(0)
-        self.widget.setSizePolicy(self.size_policy)
-
-        # Main layout
-        self.main_layout = QHBoxLayout(self.widget)
-        self.left_layout = QVBoxLayout()
-        self.left_top_layout = QVBoxLayout()
-        self.left_bottom_layout = QHBoxLayout()
-        self.right_layout = QVBoxLayout()
-
-        # Left top layout
-        self.content_label = QLabel('Content')
-        self.content_text = QPlainTextEdit(self.input_file[0])
         self.content_text.setReadOnly(True)
-        self.output_label = QLabel('Output')
-        self.output_table = QTableWidget(0, 3)
+        self.output_label = QLabel(self.left_widget)
+        self.output_label.setText('Output')
+        self.output_label.setSizePolicy(
+            QSizePolicy.Fixed, QSizePolicy.Fixed
+        )
+        self.output_table = QTableWidget(0, 3, self.left_widget)
+        self.output_table.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
         self.output_table_labels = {
             ENTITY_LABEL: 0,
             SELECTION_START_LABEL: 1,
@@ -129,46 +140,54 @@ class NERAnnotator(QMainWindow):
         self.output_table.setHorizontalHeaderLabels(
             self.output_table_labels.keys()
         )
-        self.left_top_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
-        self.left_top_layout.addWidget(self.content_text, 0, Qt.AlignCenter)
-        self.left_top_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
-        self.left_top_layout.addWidget(self.output_table, 0, Qt.AlignCenter)
-
-        # Left bottom layout
-        self.skip_button = QPushButton('Skip')
-        self.skip_button.clicked.connect(self.skip)
-        self.next_button = QPushButton('Next')
-        self.next_button.clicked.connect(self.next)
-        self.stop_button = QPushButton('Stop')
-        self.stop_button.clicked.connect(self.stop)
-        self.left_bottom_layout.addWidget(self.skip_button, 0, Qt.AlignCenter)
-        self.left_bottom_layout.addWidget(self.next_button, 0, Qt.AlignCenter)
-        self.left_bottom_layout.addWidget(
-            self.stop_button, 0, Qt.AlignCenter
+        self.output_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.skip_button = QPushButton('Skip', self.left_widget)
+        self.skip_button.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
         )
-
-        # Left layout
-        self.left_layout.addLayout(self.left_top_layout)
-        self.left_layout.addLayout(self.left_bottom_layout)
+        self.skip_button.clicked.connect(self.skip)
+        self.next_button = QPushButton('Next', self.left_widget)
+        self.next_button.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self.next_button.clicked.connect(self.next)
+        self.stop_button = QPushButton('Stop', self.left_widget)
+        self.stop_button.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self.stop_button.clicked.connect(self.stop)
+        self.left_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
+        self.left_layout.addWidget(self.content_text)
+        self.left_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
+        self.left_layout.addWidget(self.output_table)
+        self.left_layout.addWidget(self.skip_button)
+        self.left_layout.addWidget(self.next_button)
+        self.left_layout.addWidget(self.stop_button)
 
         # Right layout
-        self.entities_label = QLabel('Entities')
+        self.entities_label = QLabel(self.right_widget)
+        self.entities_label.setText('Entities')
+        self.entities_label.setSizePolicy(
+            QSizePolicy.Fixed, QSizePolicy.Fixed
+        )
         self.right_layout.addWidget(self.entities_label, 0, Qt.AlignCenter)
         self.entities_buttons = {}
         for entity in self.entities:
-            self.entities_buttons[entity] = QPushButton(entity)
+            self.entities_buttons[entity] = QPushButton(
+                entity, self.right_widget
+            )
+            self.entities_buttons[entity].setSizePolicy(
+                QSizePolicy.Expanding, QSizePolicy.Expanding
+            )
             self.entities_buttons[entity].clicked.connect(
                 partial(self.add_entity, entity)
             )
-            self.right_layout.addWidget(
-                self.entities_buttons[entity], 0, Qt.AlignCenter
-            )
+            self.right_layout.addWidget(self.entities_buttons[entity])
 
         # Main layout
-        self.main_layout.addLayout(self.left_layout)
-        self.main_layout.addLayout(self.right_layout)
-        self.widget.setLayout(self.main_layout)
-        self.setCentralWidget(self.widget)
+        self.main_layout.addWidget(self.left_widget)
+        self.main_layout.addWidget(self.right_widget)
+        self.setCentralWidget(self.central_widget)
 
     def skip(self):
         '''
@@ -189,26 +208,26 @@ class NERAnnotator(QMainWindow):
         '''
         Save the current annotations
         '''
-        text = self.content_text.toPlainText()
         entities = []
         for i in range(self.output_table.rowCount()):
-            entities.append([
-                int(self.output_table.item(
-                    i, self.output_table_labels[SELECTION_START_LABEL]
-                ).text()),
-                int(self.output_table.item(
-                    i,  self.output_table_labels[SELECTION_END_LABEL]
-                ).text()),
-                self.output_table.item(
-                    i, self.output_table_labels[ENTITY_LABEL]
-                ).text()
-            ])
-        self.annotations.append(
-            {
-                'content': text,
-                'entities': entities
-            }
-        )
+            ent = self.output_table.item(
+                i, self.output_table_labels[ENTITY_LABEL]
+            ).text()
+            ss = self.output_table.item(
+                i,  self.output_table_labels[SELECTION_START_LABEL]
+            ).text()
+            se = self.output_table.item(
+                i,  self.output_table_labels[SELECTION_END_LABEL]
+            ).text()
+            if ent and ss.isdigit() and se.isdigit():
+                entities.append([int(ss), int(se), ent])
+        if entities:
+            self.annotations.append(
+                {
+                    'content': self.content_text.toPlainText(),
+                    'entities': entities
+                }
+            )
 
     def next(self):
         '''
@@ -217,11 +236,10 @@ class NERAnnotator(QMainWindow):
         self.record()
         self.skip()
 
-    def stop(self):
+    def save(self):
         '''
-        Complete the annotating process
+        Save annotations to the output file
         '''
-        self.record()
         try:
             open(self.output_file, 'w').write(json.dumps(self.annotations))
         except Exception as err:
@@ -229,7 +247,13 @@ class NERAnnotator(QMainWindow):
                 text='An error occurred while saving the output file',
                 informative=str(err)
             )
-            return
+
+    def stop(self):
+        '''
+        Complete the annotating process
+        '''
+        self.record()
+        self.save()
         self.close()
 
     def add_entity(self, entity):
@@ -257,6 +281,30 @@ class NERAnnotator(QMainWindow):
                 self.output_table_labels[ENTITY_LABEL],
                 QTableWidgetItem(entity)
             )
+
+    def closeEvent(self, event):
+        self.record()
+        if self.annotations:
+            quit_msg = "You have unsaved work. Would you like to save it before leaving?"
+            reply = QMessageBox.question(
+                self, 'Save before exit', quit_msg, QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+            if reply == QMessageBox.Yes:
+                self.save()
+                event.accept()
+            elif reply == QMessageBox.Cancel:
+                event.ignore()
+            else:
+                event.accept()
+        else:
+            quit_msg = "Are you sure you want to exit the program?"
+            reply = QMessageBox.question(
+                self, 'Exit', quit_msg, QMessageBox.Yes, QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
 
 
 def parse_args():
@@ -292,8 +340,9 @@ if __name__ == "__main__":
                     os.path.dirname(args.input), 'output.json'
                 ))
             )
-        if is_file_valid(args.output, VALID_OUT_FMT):
-            app = QApplication(sys.argv)
-            window = NERAnnotator(input_file, args.output, args.entities)
-            window.show()
-            sys.exit(app.exec_())
+        elif not is_file_valid(args.output, VALID_OUT_FMT):
+            raise
+        app = QApplication(sys.argv)
+        window = NERAnnotator(input_file, args.output, args.entities)
+        window.show()
+        sys.exit(app.exec_())
