@@ -15,7 +15,6 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPlainTextEdit,
-    QLineEdit,
     QLabel,
     QPushButton,
     QMessageBox,
@@ -26,7 +25,6 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QApplication
 )
-from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import Qt
 
 
@@ -38,6 +36,9 @@ VALID_OUT_FMT = ('.json')
 ENTITY_LABEL = 'Entity'
 SELECTION_START_LABEL = 'Selection start'
 SELECTION_END_LABEL = 'Selection end'
+
+# CSS
+STYLE = open('style.css').read()
 
 
 def is_file_valid(path, valid_fmts):
@@ -104,6 +105,7 @@ class NERAnnotator(QMainWindow):
 
         # Main layout
         self.central_widget = QWidget(self)
+        self.central_widget.setStyleSheet(STYLE)
         self.main_layout = QHBoxLayout(self.central_widget)
         self.left_widget = QWidget(self.central_widget)
         self.left_layout = QVBoxLayout(self.left_widget)
