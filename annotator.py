@@ -21,11 +21,11 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
-    QFrame,
     QHeaderView,
+    QAbstractItemView,
     QApplication
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 
 
 # Input/output formats
@@ -34,6 +34,7 @@ VALID_OUT_FMT = ('.json')
 
 # Output table labels
 ENTITY_LABEL = 'Entity'
+VALUE_LABEL = 'Value'
 SELECTION_START_LABEL = 'Selection start'
 SELECTION_END_LABEL = 'Selection end'
 
@@ -130,41 +131,45 @@ class NERAnnotator(QMainWindow):
         self.output_label.setSizePolicy(
             QSizePolicy.Fixed, QSizePolicy.Fixed
         )
-        self.output_table = QTableWidget(0, 3, self.left_widget)
+        self.output_table_labels = {
+            ENTITY_LABEL: 0,
+            VALUE_LABEL: 1,
+            SELECTION_START_LABEL: 2,
+            SELECTION_END_LABEL: 3
+        }
+        self.output_table = QTableWidget(
+            0, len(self.output_table_labels), self.left_widget
+        )
         self.output_table.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
-        self.output_table_labels = {
-            ENTITY_LABEL: 0,
-            SELECTION_START_LABEL: 1,
-            SELECTION_END_LABEL: 2
-        }
         self.output_table.setHorizontalHeaderLabels(
             self.output_table_labels.keys()
         )
+        self.output_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.output_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.skip_button = QPushButton('Skip', self.left_widget)
         self.skip_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
+            QSizePolicy.Expanding, QSizePolicy.Fixed
         )
         self.skip_button.clicked.connect(self.skip)
         self.next_button = QPushButton('Next', self.left_widget)
         self.next_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
+            QSizePolicy.Expanding, QSizePolicy.Fixed
         )
         self.next_button.clicked.connect(self.next)
-        self.stop_button = QPushButton('Stop', self.left_widget)
-        self.stop_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
+        self.save_button = QPushButton('Save', self.left_widget)
+        self.save_button.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Fixed
         )
-        self.stop_button.clicked.connect(self.stop)
+        self.save_button.clicked.connect(self.stop)
         self.left_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
         self.left_layout.addWidget(self.content_text)
         self.left_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
         self.left_layout.addWidget(self.output_table)
         self.left_layout.addWidget(self.skip_button)
         self.left_layout.addWidget(self.next_button)
-        self.left_layout.addWidget(self.stop_button)
+        self.left_layout.addWidget(self.save_button)
 
         # Right layout
         self.entities_label = QLabel(self.right_widget)
@@ -256,18 +261,28 @@ class NERAnnotator(QMainWindow):
         '''
         self.record()
         self.save()
-        self.close()
 
     def add_entity(self, entity):
         '''
         Add the selected entity
         '''
         cursor = self.content_text.textCursor()
+        value = cursor.selectedText()
         selection_start = cursor.selectionStart()
         selection_end = cursor.selectionEnd()
         if selection_end - selection_start > 0:
             rows = self.output_table.rowCount()
             self.output_table.insertRow(rows)
+            self.output_table.setItem(
+                rows,
+                self.output_table_labels[ENTITY_LABEL],
+                QTableWidgetItem(entity)
+            )
+            self.output_table.setItem(
+                rows,
+                self.output_table_labels[VALUE_LABEL],
+                QTableWidgetItem(value)
+            )
             self.output_table.setItem(
                 rows,
                 self.output_table_labels[SELECTION_START_LABEL],
@@ -278,11 +293,12 @@ class NERAnnotator(QMainWindow):
                 self.output_table_labels[SELECTION_END_LABEL],
                 QTableWidgetItem(str(selection_end))
             )
-            self.output_table.setItem(
-                rows,
-                self.output_table_labels[ENTITY_LABEL],
-                QTableWidgetItem(entity)
-            )
+
+    def keyPressEvent(self, event):
+        if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+            select = self.output_table.selectionModel()
+            for index in select.selectedRows():
+                self.output_table.removeRow(index.row())
 
     def closeEvent(self, event):
         self.record()
