@@ -7,6 +7,7 @@ import sys
 import os
 import argparse
 import json
+import copy
 from functools import partial
 
 from PyQt5.QtWidgets import (
@@ -61,28 +62,16 @@ def is_file_valid(path, valid_fmts):
     return True
 
 
-def show_warning(text, informative):
+def show_dialog(dialog_type, title, text, informative=''):
     '''
-    Shows a warning message
+    Shows a dialog message
     '''
-    warning_dialog = QMessageBox()
-    warning_dialog.setIcon(QMessageBox.Warning)
-    warning_dialog.setText(text)
-    warning_dialog.setInformativeText(informative)
-    warning_dialog.setWindowTitle("Warning")
-    warning_dialog.exec_()
-
-
-def show_error(text, informative):
-    '''
-    Shows a error message
-    '''
-    error_dialog = QMessageBox()
-    error_dialog.setIcon(QMessageBox.Critical)
-    error_dialog.setText(text)
-    error_dialog.setInformativeText(informative)
-    error_dialog.setWindowTitle("Error")
-    error_dialog.exec_()
+    dialog = QMessageBox()
+    dialog.setIcon(dialog_type)
+    dialog.setText(text)
+    dialog.setInformativeText(informative)
+    dialog.setWindowTitle(title)
+    dialog.exec_()
 
 
 class NERAnnotator(QMainWindow):
@@ -103,6 +92,7 @@ class NERAnnotator(QMainWindow):
         self.entities = entities
         self.annotations = []
         self.current_line = 0
+        self.latest_save = []
 
         # Main layout
         self.central_widget = QWidget(self)
@@ -126,6 +116,8 @@ class NERAnnotator(QMainWindow):
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
         self.content_text.setReadOnly(True)
+        self.lines_label = QLabel(self.left_widget)
+        self.lines_label.setText(f'Line 1/{len(self.input_file)}')
         self.output_label = QLabel(self.left_widget)
         self.output_label.setText('Output')
         self.output_label.setSizePolicy(
@@ -165,6 +157,7 @@ class NERAnnotator(QMainWindow):
         self.save_button.clicked.connect(self.stop)
         self.left_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
         self.left_layout.addWidget(self.content_text)
+        self.left_layout.addWidget(self.lines_label, 0, Qt.AlignRight)
         self.left_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
         self.left_layout.addWidget(self.output_table)
         self.left_layout.addWidget(self.skip_button)
@@ -201,12 +194,17 @@ class NERAnnotator(QMainWindow):
         Show the next line of the training file
         '''
         if self.current_line == len(self.input_file) - 1:
-            show_warning(
+            show_dialog(
+                dialog_type=QMessageBox.Warning,
+                title='Warning',
                 text='No more lines in the input file',
-                informative='You should save the results using the "stop" button'
+                informative='You should save the results'
             )
             return
         self.current_line += 1
+        self.lines_label.setText(
+            f'Line {self.current_line + 1}/{len(self.input_file)}'
+        )
         self.content_text.clear()
         self.content_text.insertPlainText(self.input_file[self.current_line])
         self.output_table.setRowCount(0)
@@ -228,13 +226,29 @@ class NERAnnotator(QMainWindow):
             ).text()
             if ent and ss.isdigit() and se.isdigit():
                 entities.append([int(ss), int(se), ent])
-        if entities:
-            self.annotations.append(
-                {
-                    'content': self.content_text.toPlainText(),
-                    'entities': entities
-                }
-            )
+        annotation = {
+            'content': self.content_text.toPlainText(),
+            'entities': entities
+        }
+        index = self.annotation_index(annotation)
+        if index is None and entities:
+            self.annotations.append(annotation)
+        elif index is not None:
+            if not entities:
+                del self.annotations[index]
+            else:
+                self.annotations[index]['entities'] = entities
+
+    def annotation_index(self, annotation):
+        '''
+        Check if the given annotation exists. 
+        If it does, return its index in the annotations,
+        otherwise return None.
+        '''
+        for i, ann in enumerate(self.annotations):
+            if ann['content'] == annotation['content']:
+                return i
+        return None
 
     def next(self):
         '''
@@ -247,12 +261,27 @@ class NERAnnotator(QMainWindow):
         '''
         Save annotations to the output file
         '''
-        try:
-            open(self.output_file, 'w').write(json.dumps(self.annotations))
-        except Exception as err:
-            show_error(
-                text='An error occurred while saving the output file',
-                informative=str(err)
+        if self.latest_save != self.annotations:
+            try:
+                open(self.output_file, 'w').write(json.dumps(self.annotations))
+                self.latest_save = copy.deepcopy(self.annotations)
+                show_dialog(
+                    dialog_type=QMessageBox.Information,
+                    title='Success',
+                    text='The output file was successfully saved'
+                )
+            except Exception as err:
+                show_dialog(
+                    dialog_type=QMessageBox.Critical,
+                    title='Error',
+                    text='An error occurred while saving the output file',
+                    informative=str(err)
+                )
+        else:
+            show_dialog(
+                dialog_type=QMessageBox.Information,
+                title='No data to save',
+                text='You do not have new data to save'
             )
 
     def stop(self):
@@ -302,7 +331,7 @@ class NERAnnotator(QMainWindow):
 
     def closeEvent(self, event):
         self.record()
-        if self.annotations:
+        if self.latest_save != self.annotations:
             quit_msg = "You have unsaved work. Would you like to save it before leaving?"
             reply = QMessageBox.question(
                 self, 'Save before exit', quit_msg, QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
