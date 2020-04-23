@@ -178,9 +178,12 @@ class NERAnnotator(QMainWindow):
         )
         self.right_layout.addWidget(self.entities_label, 0, Qt.AlignCenter)
         self.entities_buttons = {}
-        for entity in self.entities:
+        for i, entity in enumerate(self.entities):
+            text = entity
+            if len(self.entities) < 10:
+                text = f'{i + 1}. ' + text
             self.entities_buttons[entity] = QPushButton(
-                entity, self.right_widget
+                text, self.right_widget
             )
             self.entities_buttons[entity].setSizePolicy(
                 QSizePolicy.Expanding, QSizePolicy.Expanding
@@ -374,6 +377,10 @@ class NERAnnotator(QMainWindow):
             select = self.output_table.selectionModel()
             for index in select.selectedRows():
                 self.output_table.removeRow(index.row())
+        elif event.type() == QEvent.KeyPress and event.key() in range(Qt.Key_1, Qt.Key_9):
+            if len(self.entities) < 10:
+                index = int(event.key()) - 48
+                self.add_selected_entity(self.entities[index - 1])
 
     def closeEvent(self, event):
         self.record()
