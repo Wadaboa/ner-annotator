@@ -150,6 +150,11 @@ class NERAnnotator(QMainWindow):
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
         self.next_button.clicked.connect(self.next)
+        self.prev_button = QPushButton('Prev', self.left_widget)
+        self.prev_button.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Fixed
+        )
+        self.prev_button.clicked.connect(self.prev)
         self.save_button = QPushButton('Save', self.left_widget)
         self.save_button.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
@@ -162,6 +167,7 @@ class NERAnnotator(QMainWindow):
         self.left_layout.addWidget(self.output_table)
         self.left_layout.addWidget(self.skip_button)
         self.left_layout.addWidget(self.next_button)
+        self.left_layout.addWidget(self.prev_button)
         self.left_layout.addWidget(self.save_button)
 
         # Right layout
@@ -180,7 +186,7 @@ class NERAnnotator(QMainWindow):
                 QSizePolicy.Expanding, QSizePolicy.Expanding
             )
             self.entities_buttons[entity].clicked.connect(
-                partial(self.add_entity, entity)
+                partial(self.add_selected_entity, entity)
             )
             self.right_layout.addWidget(self.entities_buttons[entity])
 
@@ -209,6 +215,33 @@ class NERAnnotator(QMainWindow):
         self.content_text.insertPlainText(self.input_file[self.current_line])
         self.output_table.setRowCount(0)
 
+    def undo(self):
+        '''
+        Show the previous line of the training file
+        '''
+        if self.current_line == 0:
+            show_dialog(
+                dialog_type=QMessageBox.Warning,
+                title='Warning',
+                text='No more previous lines in the input file',
+                informative='You should save the results'
+            )
+            return
+        self.current_line -= 1
+        self.lines_label.setText(
+            f'Line {self.current_line + 1}/{len(self.input_file)}'
+        )
+        self.content_text.clear()
+        self.content_text.insertPlainText(self.input_file[self.current_line])
+        self.output_table.setRowCount(0)
+        text = self.content_text.toPlainText()
+        index = self.annotation_index(text)
+        if index is not None:
+            for ent in self.annotations[index]['entities']:
+                selection_start, selection_end, entity = ent[0], ent[1], ent[2]
+                value = text[selection_start:selection_end]
+                self.add_entity(entity, selection_start, selection_end, value)
+
     def record(self):
         '''
         Save the current annotations
@@ -230,7 +263,7 @@ class NERAnnotator(QMainWindow):
             'content': self.content_text.toPlainText(),
             'entities': entities
         }
-        index = self.annotation_index(annotation)
+        index = self.annotation_index(annotation['content'])
         if index is None and entities:
             self.annotations.append(annotation)
         elif index is not None:
@@ -239,14 +272,14 @@ class NERAnnotator(QMainWindow):
             else:
                 self.annotations[index]['entities'] = entities
 
-    def annotation_index(self, annotation):
+    def annotation_index(self, content):
         '''
         Check if the given annotation exists. 
         If it does, return its index in the annotations,
         otherwise return None.
         '''
         for i, ann in enumerate(self.annotations):
-            if ann['content'] == annotation['content']:
+            if ann['content'] == content:
                 return i
         return None
 
@@ -256,6 +289,13 @@ class NERAnnotator(QMainWindow):
         '''
         self.record()
         self.skip()
+
+    def prev(self):
+        '''
+        Save the current annotations and go to the previous line
+        '''
+        self.record()
+        self.undo()
 
     def save(self):
         '''
@@ -291,14 +331,20 @@ class NERAnnotator(QMainWindow):
         self.record()
         self.save()
 
-    def add_entity(self, entity):
+    def add_selected_entity(self, entity):
         '''
-        Add the selected entity
+        Add the selected entity to the output table
         '''
         cursor = self.content_text.textCursor()
         value = cursor.selectedText()
         selection_start = cursor.selectionStart()
         selection_end = cursor.selectionEnd()
+        self.add_entity(entity, selection_start, selection_end, value)
+
+    def add_entity(self, entity, selection_start, selection_end, value):
+        '''
+        Add the given entity to the output table
+        '''
         if selection_end - selection_start > 0:
             rows = self.output_table.rowCount()
             self.output_table.insertRow(rows)
