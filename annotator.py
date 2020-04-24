@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import (
     QApplication
 )
 from PyQt5.QtCore import Qt, QEvent
+import spacy
 
 
 # Input/output formats
@@ -79,7 +80,7 @@ class NERAnnotator(QMainWindow):
     Main window
     '''
 
-    def __init__(self, input_file, output_file, entities):
+    def __init__(self, input_file, output_file, entities, model=None):
         # Window settings
         QMainWindow.__init__(self)
         self.resize(1200, 800)
@@ -90,6 +91,10 @@ class NERAnnotator(QMainWindow):
         self.input_file = input_file
         self.output_file = output_file
         self.entities = entities
+        self.model = (
+            spacy.load(model) if model is not None
+            else None
+        )
         self.annotations = []
         self.current_line = 0
         self.latest_save = []
@@ -155,6 +160,12 @@ class NERAnnotator(QMainWindow):
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
         self.prev_button.clicked.connect(self.prev)
+        if self.model is not None:
+            self.classify_button = QPushButton('Classify', self.left_widget)
+            self.classify_button.setSizePolicy(
+                QSizePolicy.Expanding, QSizePolicy.Fixed
+            )
+            self.classify_button.clicked.connect(self.classify)
         self.save_button = QPushButton('Save', self.left_widget)
         self.save_button.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
@@ -168,6 +179,8 @@ class NERAnnotator(QMainWindow):
         self.left_layout.addWidget(self.skip_button)
         self.left_layout.addWidget(self.next_button)
         self.left_layout.addWidget(self.prev_button)
+        if self.model is not None:
+            self.left_layout.addWidget(self.classify_button)
         self.left_layout.addWidget(self.save_button)
 
         # Right layout
@@ -284,7 +297,7 @@ class NERAnnotator(QMainWindow):
 
     def annotation_index(self, content):
         '''
-        Check if the given annotation exists. 
+        Check if the given annotation exists.
         If it does, return its index in the annotations,
         otherwise return None.
         '''
@@ -333,6 +346,17 @@ class NERAnnotator(QMainWindow):
                 title='No data to save',
                 text='You do not have new data to save'
             )
+
+    def classify(self):
+        '''
+        Classify the current text using the given model
+        '''
+        doc = self.model(self.content_text.toPlainText())
+        for ent in doc.ents:
+            if ent.label_ in self.entities:
+                self.add_entity(
+                    ent.label_, ent.start_char, ent.end_char, ent.text
+                )
 
     def stop(self):
         '''
@@ -429,6 +453,10 @@ def parse_args():
         type=str, help='list of entities to be classified'
     )
     parser.add_argument(
+        '-m', '--model', dest='model', action='store',
+        type=str, help='path to an existing NER model'
+    )
+    parser.add_argument(
         '-o', '--output', dest='output', action='store',
         type=str, help='path to the output file'
     )
@@ -449,7 +477,13 @@ if __name__ == "__main__":
             )
         elif not is_file_valid(args.output, VALID_OUT_FMT):
             raise
+        if args.model is not None and not os.path.exists(args.model):
+            raise Exception(
+                'The given model does not exist'
+            )
         app = QApplication(sys.argv)
-        window = NERAnnotator(input_file, args.output, args.entities)
+        window = NERAnnotator(
+            input_file, args.output, args.entities, args.model
+        )
         window.show()
         sys.exit(app.exec_())
