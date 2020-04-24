@@ -217,6 +217,13 @@ class NERAnnotator(QMainWindow):
         self.content_text.clear()
         self.content_text.insertPlainText(self.input_file[self.current_line])
         self.output_table.setRowCount(0)
+        text = self.content_text.toPlainText()
+        index = self.annotation_index(text)
+        if index is not None:
+            for ent in self.annotations[index]['entities']:
+                selection_start, selection_end, entity = ent[0], ent[1], ent[2]
+                value = text[selection_start:selection_end]
+                self.add_entity(entity, selection_start, selection_end, value)
 
     def undo(self):
         '''
