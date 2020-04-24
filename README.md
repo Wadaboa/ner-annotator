@@ -30,6 +30,14 @@ For example, I could run the program like this:
 python3 annotator.py '~/Desktop/train.txt' 'BirthDate' 'Name'
 ```
 
+You can also optionally pass an existing NER model to the annotator, so as to identify entities using that model and eventually modify/add/remove them. For example:
+
+```bash
+python3 annotator.py '~/Desktop/train.txt' 'BirthDate' 'Name' -m '~/Desktop/NER'
+```
+
+Currently, only the `SpaCy` models are supported.
+
 ## Output
 The utility software will output a `.json` file with the following schema:
 
