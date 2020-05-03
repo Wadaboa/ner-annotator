@@ -144,7 +144,15 @@ class NERAnnotator(QMainWindow):
             self.output_table_labels.keys()
         )
         self.output_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.output_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.output_table.horizontalHeader().setSectionResizeMode(
+            self.output_table_labels[ENTITY_LABEL], QHeaderView.Stretch
+        )
+        self.output_table.horizontalHeader().setSectionResizeMode(
+            self.output_table_labels[SELECTION_START_LABEL], QHeaderView.ResizeToContents
+        )
+        self.output_table.horizontalHeader().setSectionResizeMode(
+            self.output_table_labels[SELECTION_END_LABEL], QHeaderView.ResizeToContents
+        )
         self.skip_button = QPushButton('Skip', self.left_widget)
         self.skip_button.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
@@ -155,7 +163,7 @@ class NERAnnotator(QMainWindow):
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
         self.next_button.clicked.connect(self.next)
-        self.prev_button = QPushButton('Prev', self.left_widget)
+        self.prev_button = QPushButton('Previous', self.left_widget)
         self.prev_button.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Fixed
         )
@@ -402,6 +410,7 @@ class NERAnnotator(QMainWindow):
                 self.output_table_labels[SELECTION_END_LABEL],
                 QTableWidgetItem(str(selection_end))
             )
+            self.output_table.resizeRowsToContents()
 
     def keyPressEvent(self, event):
         if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
@@ -438,6 +447,18 @@ class NERAnnotator(QMainWindow):
                 event.ignore()
 
 
+def find_config_entities(config_json, config_model):
+    '''
+    Return the config model entities, given the config json
+    and the config model name
+    '''
+    models = config_json['models']
+    for model in models:
+        if model['name'] == config_model:
+            return model['entities']
+    return None
+
+
 def parse_args():
     '''
     CLI argument parser
@@ -449,7 +470,7 @@ def parse_args():
         type=str, help='path to the training text file'
     )
     parser.add_argument(
-        dest='entities', action='store', nargs='+',
+        '-e', '--entities', dest='entities', action='store', nargs='+',
         type=str, help='list of entities to be classified'
     )
     parser.add_argument(
@@ -459,6 +480,14 @@ def parse_args():
     parser.add_argument(
         '-o', '--output', dest='output', action='store',
         type=str, help='path to the output file'
+    )
+    parser.add_argument(
+        '-c', '--config', dest='config', action='store',
+        type=str, help='path to the config file'
+    )
+    parser.add_argument(
+        '-n', '--config-model', dest='config_model', action='store',
+        type=str, help='name of the model to load from the config file'
     )
     return parser
 
@@ -481,9 +510,32 @@ if __name__ == "__main__":
             raise Exception(
                 'The given model does not exist'
             )
+        entities = args.entities
+        if args.config is not None:
+            if not os.path.exists(args.config):
+                raise Exception(
+                    'The given config file does not exist'
+                )
+            if args.config_model is None:
+                raise Exception(
+                    'You have to enter the name of the config model to use'
+                )
+            with open(args.config, 'r') as f:
+                data = f.read()
+            config_json = json.loads(data)
+            entities = find_config_entities(config_json, args.config_model)
+            if entities is None:
+                raise Exception(
+                    'The config model name you entered is not valid'
+                )
+        if entities is None:
+            raise Exception(
+                'You have to insert entities manually or use a config file'
+            )
+
         app = QApplication(sys.argv)
         window = NERAnnotator(
-            input_file, args.output, args.entities, args.model
+            input_file, args.output, entities, args.model
         )
         window.show()
         sys.exit(app.exec_())
