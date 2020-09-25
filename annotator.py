@@ -26,7 +26,8 @@ from PyQt5.QtWidgets import (
     QAbstractItemView,
     QApplication
 )
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt, QEvent, QFile, QSize
+from PyQt5.QtGui import QIcon
 import spacy
 
 
@@ -41,7 +42,13 @@ SELECTION_START_LABEL = 'Selection start'
 SELECTION_END_LABEL = 'Selection end'
 
 # CSS
-STYLE = open('style.css').read()
+STYLE = ""
+STYLE_FILE = QFile("style.qss")
+if STYLE_FILE.open(QFile.ReadOnly):
+    STYLE = STYLE_FILE.readAll().data().decode()
+
+# Style
+ICON_SIZE = 64
 
 
 def is_file_valid(path, valid_fmts):
@@ -105,6 +112,8 @@ class NERAnnotator(QMainWindow):
         self.main_layout = QHBoxLayout(self.central_widget)
         self.left_widget = QWidget(self.central_widget)
         self.left_layout = QVBoxLayout(self.left_widget)
+        self.left_bottom_widget = QWidget(self.left_widget)
+        self.left_bottom_layout = QHBoxLayout(self.left_bottom_widget)
         self.right_widget = QWidget(self.central_widget)
         self.right_layout = QVBoxLayout(self.right_widget)
 
@@ -153,43 +162,47 @@ class NERAnnotator(QMainWindow):
         self.output_table.horizontalHeader().setSectionResizeMode(
             self.output_table_labels[SELECTION_END_LABEL], QHeaderView.ResizeToContents
         )
-        self.skip_button = QPushButton('Skip', self.left_widget)
-        self.skip_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
-        )
-        self.skip_button.clicked.connect(self.skip)
-        self.next_button = QPushButton('Next', self.left_widget)
-        self.next_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
-        )
-        self.next_button.clicked.connect(self.next)
-        self.prev_button = QPushButton('Previous', self.left_widget)
-        self.prev_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
-        )
-        self.prev_button.clicked.connect(self.prev)
-        if self.model is not None:
-            self.classify_button = QPushButton('Classify', self.left_widget)
-            self.classify_button.setSizePolicy(
-                QSizePolicy.Expanding, QSizePolicy.Fixed
-            )
-            self.classify_button.clicked.connect(self.classify)
-        self.save_button = QPushButton('Save', self.left_widget)
-        self.save_button.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Fixed
-        )
-        self.save_button.clicked.connect(self.stop)
         self.left_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
         self.left_layout.addWidget(self.content_text)
         self.left_layout.addWidget(self.lines_label, 0, Qt.AlignRight)
         self.left_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
         self.left_layout.addWidget(self.output_table)
-        self.left_layout.addWidget(self.skip_button)
-        self.left_layout.addWidget(self.next_button)
-        self.left_layout.addWidget(self.prev_button)
+
+        # Left bottom layout
+        self.prev_button = self.set_button(
+            icon_path='img/previous.png',
+            function=self.prev,
+            parent=self.left_bottom_widget
+        )
         if self.model is not None:
-            self.left_layout.addWidget(self.classify_button)
-        self.left_layout.addWidget(self.save_button)
+            self.classify_button = self.set_button(
+                icon_path='img/categorize.png',
+                function=self.classify,
+                parent=self.left_bottom_widget
+            )
+        self.next_button = self.set_button(
+            icon_path='img/next.png',
+            function=self.next,
+            parent=self.left_bottom_widget
+        )
+        self.skip_button = self.set_button(
+            icon_path='img/skip.png',
+            function=self.skip,
+            parent=self.left_bottom_widget
+        )
+        self.save_button = self.set_button(
+            icon_path='img/save.png',
+            function=self.stop,
+            parent=self.left_bottom_widget
+        )
+
+        self.left_bottom_layout.addWidget(self.prev_button)
+        if self.model is not None:
+            self.left_bottom_layout.addWidget(self.classify_button)
+        self.left_bottom_layout.addWidget(self.next_button)
+        self.left_bottom_layout.addWidget(self.skip_button)
+        self.left_bottom_layout.addWidget(self.save_button)
+        self.left_layout.addWidget(self.left_bottom_widget)
 
         # Right layout
         self.entities_label = QLabel(self.right_widget)
@@ -218,6 +231,17 @@ class NERAnnotator(QMainWindow):
         self.main_layout.addWidget(self.left_widget)
         self.main_layout.addWidget(self.right_widget)
         self.setCentralWidget(self.central_widget)
+
+    def set_button(self, icon_path, function, name="", parent=None):
+        '''
+        Configures a QPushButton
+        '''
+        btn = QPushButton(name, parent)
+        btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        btn.clicked.connect(function)
+        btn.setIcon(QIcon(icon_path))
+        btn.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
+        return btn
 
     def skip(self):
         '''
@@ -533,7 +557,9 @@ if __name__ == "__main__":
                 'You have to insert entities manually or use a config file'
             )
 
+        QApplication.setStyle("fusion")
         app = QApplication(sys.argv)
+        app.setStyleSheet(STYLE)
         window = NERAnnotator(
             input_file, args.output, entities, args.model
         )
