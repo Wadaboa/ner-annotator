@@ -2,9 +2,9 @@
 
 This repository contains a NER utility to annotate text, given some entities.
 
-|               Dark GUI               |               Light GUI                |
-| :----------------------------------: | :------------------------------------: |
-| ![dark-gui](assets/img/gui-dark.png) | ![light-gui](assets/img/gui-light.png) |
+|                                              Dark GUI                                               |                                               Light GUI                                               |
+| :-------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------: |
+| ![dark-gui](https://raw.githubusercontent.com/Wadaboa/ner-annotator/master/assets/img/gui-dark.png) | ![light-gui](https://raw.githubusercontent.com/Wadaboa/ner-annotator/master/assets/img/gui-light.png) |
 
 ## Installation
 
@@ -99,3 +99,23 @@ pickle.load(open("~/Desktop/output", 'rb'))
 In this example, `ner_annotator` was either called with `-o ~/Desktop/output.json` or without the `-o` option but with `-i ~/Desktop/train.txt` or similar.
 
 Currently, only `SpaCy` models conversion is provided.
+
+## Distribution
+
+This package is available on `PyPy`, so you can also install it by simply running:
+
+```bash
+pip install ner-annotator
+```
+
+You can also install extra packages, like `SpaCy`:
+
+```bash
+pip install ner-annotator[spacy]
+```
+
+_Personal note_: In order to upload a new version of the package to PyPy, just execute `scripts/deploy.sh`, insert `__token__` as Twine username and the saved API token as Twine password.
+
+## Thanks to
+
+- GUI icons are provided by [Icons8](https://icons8.it)
