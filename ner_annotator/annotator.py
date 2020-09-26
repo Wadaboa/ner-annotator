@@ -6,6 +6,7 @@ Define the main window
 import json
 import copy
 import math
+import random
 from functools import partial
 
 from PyQt5.QtWidgets import (
@@ -25,7 +26,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView
 )
 from PyQt5.QtCore import Qt, QEvent, QSize
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QTextCursor, QTextCharFormat, QColor
 
 import ner_annotator
 
@@ -447,11 +448,66 @@ class NERAnnotator(QMainWindow):
                 QTableWidgetItem(str(selection_end))
             )
             self.output_table.resizeRowsToContents()
+            self.set_highlighting(rows, selection_start, selection_end)
+
+    def highlight(self, selection_start, selection_end, color):
+        '''
+        Color selected text in the content section
+        '''
+        cursor = self.content_text.textCursor()
+        cursor.setPosition(int(selection_start))
+        cursor.setPosition(int(selection_end), QTextCursor.KeepAnchor)
+        fmt = QTextCharFormat()
+        if isinstance(color, str):
+            fmt.setBackground(QColor("transparent"))
+        elif isinstance(color, tuple) or isinstance(color, list):
+            if len(color) == 3:
+                fmt.setBackground(
+                    QColor(color[0], color[1], color[2])
+                )
+            elif len(color) == 4:
+                fmt.setBackground(
+                    QColor(color[0], color[1], color[2], color[3])
+                )
+        cursor.setCharFormat(fmt)
+
+    def set_highlighting(self, output_row, selection_start, selection_end):
+        '''
+        Color selected text and the corresponding row in the output table
+        '''
+        # Color selected text
+        color = [
+            random.randint(0, 255),
+            random.randint(0, 255),
+            random.randint(0, 255),
+            80
+        ]
+        self.highlight(selection_start, selection_end, color)
+
+        # Color entire row in output table
+        for output_col in self.output_table_labels.values():
+            self.output_table.item(output_row, output_col).setBackground(
+                QColor(color[0], color[1], color[2], 80)
+            )
+
+    def clear_highlighting(self, output_row):
+        '''
+        Remove highlighting from text when removing 
+        corresponding entity in output table
+        '''
+        selection_start = self.output_table.item(
+            output_row, self.output_table_labels[ner_annotator.SELECTION_START_LABEL]
+        ).text()
+        selection_end = self.output_table.item(
+            output_row, self.output_table_labels[ner_annotator.SELECTION_END_LABEL]
+        ).text()
+        self.highlight(selection_start, selection_end, "transparent")
 
     def keyPressEvent(self, event):
         if event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             select = self.output_table.selectionModel()
             for index in select.selectedRows():
+                self.clear_highlighting(index.row())
                 self.output_table.removeRow(index.row())
         elif event.type() == QEvent.KeyPress and event.key() in range(Qt.Key_1, Qt.Key_9):
             if len(self.entities) < 10:
