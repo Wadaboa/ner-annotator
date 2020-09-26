@@ -14,6 +14,10 @@ with open("README.md", "r") as fh:
 with open("requirements.txt", "r") as fh:
     install_requires = fh.read().splitlines()
 
+extras_require = {
+    "spacy": ["spacy==2.2.4"]
+}
+
 
 setup(
     name='ner_annotator',
@@ -41,5 +45,6 @@ setup(
         ]
     },
     python_requires='>=3.6',
-    install_requires=install_requires
+    install_requires=install_requires,
+    extras_require=extras_require
 )

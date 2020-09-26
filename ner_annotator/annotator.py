@@ -24,7 +24,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QEvent, QSize
 from PyQt5.QtGui import QIcon
-import spacy
 
 import ner_annotator
 
@@ -46,7 +45,7 @@ class NERAnnotator(QMainWindow):
     Main window
     '''
 
-    def __init__(self, input_file, output_file, entities, model=None):
+    def __init__(self, input_file, output_file, entities, model_path=None):
         # Window settings
         QMainWindow.__init__(self)
         self.resize(1200, 800)
@@ -58,7 +57,7 @@ class NERAnnotator(QMainWindow):
         self.output_file = output_file
         self.entities = entities
         self.model = (
-            spacy.load(model) if model is not None
+            ner_annotator.load_model(model_path) if model_path is not None
             else None
         )
         self.annotations = []
@@ -342,11 +341,11 @@ class NERAnnotator(QMainWindow):
         '''
         Classify the current text using the given model
         '''
-        doc = self.model(self.content_text.toPlainText())
-        for ent in doc.ents:
-            if ent.label_ in self.entities:
+        entities = self.model.classify(self.content_text.toPlainText())
+        for ent in entities:
+            if ent['label'] in self.entities:
                 self.add_entity(
-                    ent.label_, ent.start_char, ent.end_char, ent.text
+                    ent['label'], ent['start'], ent['end'], ent['text']
                 )
 
     def stop(self):

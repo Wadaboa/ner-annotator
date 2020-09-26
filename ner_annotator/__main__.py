@@ -95,7 +95,7 @@ def main():
             )
         if args.model is not None and not os.path.exists(args.model):
             raise Exception(
-                'The given model does not exist'
+                'The given NER model does not exist'
             )
         entities = args.entities
         if args.config is not None:
