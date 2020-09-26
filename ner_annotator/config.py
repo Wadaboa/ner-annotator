@@ -16,8 +16,8 @@ VALID_OUT_FMT = ('.json')
 # Output table labels
 ENTITY_LABEL = 'Entity'
 VALUE_LABEL = 'Value'
-SELECTION_START_LABEL = 'Selection start'
-SELECTION_END_LABEL = 'Selection end'
+SELECTION_START_LABEL = 'Start'
+SELECTION_END_LABEL = 'End'
 
 # CSS
 STYLE = ""

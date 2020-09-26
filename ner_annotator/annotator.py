@@ -5,6 +5,7 @@ Define the main window
 
 import json
 import copy
+import math
 from functools import partial
 
 from PyQt5.QtWidgets import (
@@ -12,6 +13,7 @@ from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QPlainTextEdit,
     QLabel,
     QPushButton,
@@ -26,6 +28,43 @@ from PyQt5.QtCore import Qt, QEvent, QSize
 from PyQt5.QtGui import QIcon
 
 import ner_annotator
+
+
+class AutoGridLayout(QGridLayout):
+    '''
+    A grid layout which automatically lays widgets in the right way
+    '''
+
+    def __init__(self, num_elements, parent=None):
+        QGridLayout.__init__(self, parent)
+        self.num_elements = num_elements
+        self.row, self.column = 0, 0
+        self.num_rows, self.num_columns = self._find_size()
+
+    def _find_size(self):
+        '''
+        Minimize emptiness, subject to the number of rows and columns 
+        being greater than 1, and pick the more square-like option
+        if there are several minimizing sizes
+        (see https://stackoverflow.com/questions/19538517/find-matrix-dimension-so-as-to-contain-numbers)
+        '''
+        mm = list(range(2, math.ceil(math.sqrt(self.num_elements)) + 1))[::-1]
+        nn = list(map(lambda x: math.ceil(self.num_elements / x), mm))
+        excess = list(
+            map(lambda xy: xy[0] * xy[1] - self.num_elements, zip(mm, nn))
+        )
+        ind = min(excess)
+        return mm[ind], nn[ind]
+
+    def addNextWidget(self, widget):
+        '''
+        Add the given widget and respect the computed number
+        of rows and columns
+        '''
+        self.addWidget(widget, self.row, self.column)
+        self.column = (self.column + 2) % self.num_columns
+        if self.column == 0:
+            self.row += 1
 
 
 def show_dialog(dialog_type, title, text, informative=''):
@@ -66,30 +105,67 @@ class NERAnnotator(QMainWindow):
 
         # Main layout
         self.central_widget = QWidget(self)
-        self.main_layout = QHBoxLayout(self.central_widget)
-        self.left_widget = QWidget(self.central_widget)
-        self.left_layout = QVBoxLayout(self.left_widget)
-        self.left_bottom_widget = QWidget(self.left_widget)
-        self.left_bottom_layout = QHBoxLayout(self.left_bottom_widget)
-        self.right_widget = QWidget(self.central_widget)
-        self.right_layout = QVBoxLayout(self.right_widget)
+        self.main_layout = QVBoxLayout(self.central_widget)
+        self.content_widget = QWidget(self.central_widget)
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.entities_widget = QWidget(self.central_widget)
+        self.entities_layout = QVBoxLayout(self.entities_widget)
+        self.entities_buttons_widget = QWidget(self.entities_widget)
+        self.entities_buttons_layout = AutoGridLayout(
+            len(entities), self.entities_buttons_widget
+        )
+        self.output_widget = QWidget(self.central_widget)
+        self.output_layout = QVBoxLayout(self.output_widget)
+        self.commands_widget = QWidget(self.central_widget)
+        self.commands_layout = QHBoxLayout(self.commands_widget)
 
-        # Left layout
-        self.content_label = QLabel(self.left_widget)
+        # Content section
+        self.content_label = QLabel(self.content_widget)
         self.content_label.setText('Content')
         self.content_label.setSizePolicy(
             QSizePolicy.Fixed, QSizePolicy.Fixed
         )
         self.content_text = QPlainTextEdit(
-            self.input_file[0], self.left_widget
+            self.input_file[0], self.content_widget
         )
         self.content_text.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
         self.content_text.setReadOnly(True)
-        self.lines_label = QLabel(self.left_widget)
+        self.lines_label = QLabel(self.content_widget)
         self.lines_label.setText(f'Line 1/{len(self.input_file)}')
-        self.output_label = QLabel(self.left_widget)
+        self.content_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
+        self.content_layout.addWidget(self.content_text)
+        self.content_layout.addWidget(self.lines_label, 0, Qt.AlignRight)
+
+        # Entities section
+        self.entities_label = QLabel(self.entities_widget)
+        self.entities_label.setText('Entities')
+        self.entities_label.setSizePolicy(
+            QSizePolicy.Fixed, QSizePolicy.Fixed
+        )
+        self.entities_layout.addWidget(self.entities_label, 0, Qt.AlignCenter)
+        self.entities_buttons = {}
+        for i, entity in enumerate(self.entities):
+            text = entity
+            if len(self.entities) < 10:
+                text = f'{i + 1}. ' + text
+            self.entities_buttons[entity] = QPushButton(
+                text, self.entities_buttons_widget
+            )
+            self.entities_buttons[entity].setSizePolicy(
+                QSizePolicy.Expanding, QSizePolicy.Expanding
+            )
+            self.entities_buttons[entity].clicked.connect(
+                partial(self.add_selected_entity, entity)
+            )
+            self.entities_buttons_layout.addNextWidget(
+                self.entities_buttons[entity]
+            )
+        self.entities_layout.addWidget(self.entities_buttons_widget)
+
+        # Output section
+        self.output_label = QLabel(self.output_widget)
         self.output_label.setText('Output')
         self.output_label.setSizePolicy(
             QSizePolicy.Fixed, QSizePolicy.Fixed
@@ -101,7 +177,7 @@ class NERAnnotator(QMainWindow):
             ner_annotator.SELECTION_END_LABEL: 3
         }
         self.output_table = QTableWidget(
-            0, len(self.output_table_labels), self.left_widget
+            0, len(self.output_table_labels), self.output_widget
         )
         self.output_table.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Expanding
@@ -114,79 +190,57 @@ class NERAnnotator(QMainWindow):
             self.output_table_labels[ner_annotator.ENTITY_LABEL], QHeaderView.Stretch
         )
         self.output_table.horizontalHeader().setSectionResizeMode(
+            self.output_table_labels[ner_annotator.VALUE_LABEL], QHeaderView.Stretch
+        )
+        self.output_table.horizontalHeader().setSectionResizeMode(
             self.output_table_labels[ner_annotator.SELECTION_START_LABEL], QHeaderView.ResizeToContents
         )
         self.output_table.horizontalHeader().setSectionResizeMode(
             self.output_table_labels[ner_annotator.SELECTION_END_LABEL], QHeaderView.ResizeToContents
         )
-        self.left_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
-        self.left_layout.addWidget(self.content_text)
-        self.left_layout.addWidget(self.lines_label, 0, Qt.AlignRight)
-        self.left_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
-        self.left_layout.addWidget(self.output_table)
+        self.output_layout.addWidget(self.output_label, 0, Qt.AlignCenter)
+        self.output_layout.addWidget(self.output_table)
 
-        # Left bottom layout
+        # Commands sections
         self.prev_button = self.set_button(
             icon_path=ner_annotator.PREV_ICON_PATH,
             function=self.prev,
-            parent=self.left_bottom_widget
+            parent=self.commands_widget
         )
         if self.model is not None:
             self.classify_button = self.set_button(
                 icon_path=ner_annotator.CLASSIFY_ICON_PATH,
                 function=self.classify,
-                parent=self.left_bottom_widget
+                parent=self.commands_widget
             )
         self.next_button = self.set_button(
             icon_path=ner_annotator.NEXT_ICON_PATH,
             function=self.next,
-            parent=self.left_bottom_widget
+            parent=self.commands_widget
         )
         self.skip_button = self.set_button(
             icon_path=ner_annotator.SKIP_ICON_PATH,
             function=self.skip,
-            parent=self.left_bottom_widget
+            parent=self.commands_widget
         )
         self.save_button = self.set_button(
             icon_path=ner_annotator.SAVE_ICON_PATH,
             function=self.stop,
-            parent=self.left_bottom_widget
+            parent=self.commands_widget
         )
-        self.left_bottom_layout.addWidget(self.prev_button)
+        self.commands_layout.addWidget(self.prev_button)
         if self.model is not None:
-            self.left_bottom_layout.addWidget(self.classify_button)
-        self.left_bottom_layout.addWidget(self.next_button)
-        self.left_bottom_layout.addWidget(self.skip_button)
-        self.left_bottom_layout.addWidget(self.save_button)
-        self.left_layout.addWidget(self.left_bottom_widget)
-
-        # Right layout
-        self.entities_label = QLabel(self.right_widget)
-        self.entities_label.setText('Entities')
-        self.entities_label.setSizePolicy(
-            QSizePolicy.Fixed, QSizePolicy.Fixed
-        )
-        self.right_layout.addWidget(self.entities_label, 0, Qt.AlignCenter)
-        self.entities_buttons = {}
-        for i, entity in enumerate(self.entities):
-            text = entity
-            if len(self.entities) < 10:
-                text = f'{i + 1}. ' + text
-            self.entities_buttons[entity] = QPushButton(
-                text, self.right_widget
-            )
-            self.entities_buttons[entity].setSizePolicy(
-                QSizePolicy.Expanding, QSizePolicy.Expanding
-            )
-            self.entities_buttons[entity].clicked.connect(
-                partial(self.add_selected_entity, entity)
-            )
-            self.right_layout.addWidget(self.entities_buttons[entity])
+            self.commands_layout.addWidget(self.classify_button)
+        self.commands_layout.addWidget(self.next_button)
+        self.commands_layout.addWidget(self.skip_button)
+        self.commands_layout.addWidget(self.save_button)
 
         # Main layout
-        self.main_layout.addWidget(self.left_widget)
-        self.main_layout.addWidget(self.right_widget)
         self.setCentralWidget(self.central_widget)
+        self.main_layout.addWidget(self.content_widget)
+        self.main_layout.addWidget(self.entities_widget)
+        self.main_layout.addWidget(self.output_widget)
+        self.main_layout.addWidget(self.commands_widget)
 
     def set_button(self, icon_path, function, name="", parent=None):
         '''
