@@ -2,7 +2,9 @@
 
 This repository contains a NER utility to annotate text, given some entities.
 
-![GUI](assets/img/gui.png)
+|               Dark GUI               |               Light GUI                |
+| :----------------------------------: | :------------------------------------: |
+| ![dark-gui](assets/img/gui-dark.png) | ![light-gui](assets/img/gui-light.png) |
 
 ## Installation
 
@@ -10,17 +12,17 @@ To install this GUI you need to make sure that you have `Python 3` on your syste
 Then, `cd` into the project's root and run:
 
 ```bash
-pip install -r requirements.txt
+pip install .
 ```
 
-This will install the required dependencies (mainly `PyQt5`).
+This will install the `ner_annotator` package and its required dependencies (mainly `PyQt5`).
 
 ## Usage
 
-To run this utility, make sure you are in the project's root directory and execute the following command:
+To run this utility, execute the following command:
 
 ```bash
-python3 annotator.py <input> -o <output> -e <entities>
+ner_annotator <input> -o <output> -e <entities>
 ```
 
 Here, `<input>` is the path to the input text file, which should contain your training text lines, separated by newlines; `<output>` is the path to where you would like to save the `.json` output file (if not given, it defaults to the same directory as the input file); `<entities>` is the list of entities you would like to annotate.
@@ -28,16 +30,18 @@ Here, `<input>` is the path to the input text file, which should contain your tr
 For example, I could run the program like this:
 
 ```bash
-python3 annotator.py '~/Desktop/train.txt' -e 'BirthDate' 'Name'
+ner_annotator '~/Desktop/train.txt' -e 'BirthDate' 'Name'
 ```
 
-You can also optionally pass an existing NER model to the annotator, so as to identify entities using that model (`Classify` button in the GUI) and eventually modify/add/remove them. For example:
+You can also optionally pass an existing NER model to the annotator, so as to identify entities using that model (button between previous and next line controls in the GUI) and eventually modify/add/remove them. For example:
 
 ```bash
-python3 annotator.py '~/Desktop/train.txt' -e 'BirthDate' 'Name' -m '~/Desktop/NER'
+ner_annotator '~/Desktop/train.txt' -e 'BirthDate' 'Name' -m '~/Desktop/NER'
 ```
 
-Currently, only `SpaCy` models are supported.
+Currently, only `SpaCy` models are supported, but you can contribute to the project and add compatibility with other NER models, by checking the `model.py` file inside the `ner_annotator` package.
+
+The great thing about this package is that it is able to automagically identify the correct library for the given model (i.e. you don't have to specify that your model should be loaded with `SpaCy` or any other NLP library).
 
 ## Config file
 
@@ -85,4 +89,13 @@ The utility software will output a `.json` file with the following schema:
 ]
 ```
 
-You can convert this output into the specific format required by your NER model by implementing a function inside the `converter.py` file. Currently, only the `SpaCy` model conversion is provided.
+You can convert this output into the specific format required by your NER model by passing the `-p` option to the `ner_annotator` tool. In this way, on your output folder you will also find a `pickle` file (with the same name as the given `.json` output file, but with no extension), which can then be used to load entities in another program with the requested NLP library. To load the saved pickle file, you can do something along these lines:
+
+```python
+import pickle
+pickle.load(open("~/Desktop/output", 'rb'))
+```
+
+In this example, `ner_annotator` was either called with `-o ~/Desktop/output.json` or without the `-o` option but with `-i ~/Desktop/train.txt` or similar.
+
+Currently, only `SpaCy` models conversion is provided.

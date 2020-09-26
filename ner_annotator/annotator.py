@@ -7,6 +7,8 @@ import json
 import copy
 import math
 import random
+import pickle
+import os
 from functools import partial
 
 from PyQt5.QtWidgets import (
@@ -85,7 +87,7 @@ class NERAnnotator(QMainWindow):
     Main window
     '''
 
-    def __init__(self, input_file, output_file, entities, model_path=None):
+    def __init__(self, input_file, output_file, entities, model_path=None, save_pickle=False):
         # Window settings
         QMainWindow.__init__(self)
         self.resize(1200, 800)
@@ -100,6 +102,7 @@ class NERAnnotator(QMainWindow):
             ner_annotator.load_model(model_path) if model_path is not None
             else None
         )
+        self.save_pickle = save_pickle
         self.annotations = []
         self.current_line = 0
         self.latest_save = []
@@ -372,6 +375,13 @@ class NERAnnotator(QMainWindow):
         if self.latest_save != self.annotations:
             try:
                 open(self.output_file, 'w').write(json.dumps(self.annotations))
+                if self.model is not None and self.save_pickle:
+                    pickle_file, _ = os.path.splitext(self.output_file)
+                    with open(pickle_file, 'wb') as p:
+                        model_annotations = self.model.from_json(
+                            self.annotations
+                        )
+                        pickle.dump(model_annotations, p)
                 self.latest_save = copy.deepcopy(self.annotations)
                 show_dialog(
                     dialog_type=QMessageBox.Information,

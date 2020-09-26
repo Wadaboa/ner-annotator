@@ -49,7 +49,8 @@ def parse_args():
     CLI argument parser
     '''
     parser = argparse.ArgumentParser(
-        prog='ner-annotator', description='NER annotator')
+        prog='ner-annotator', description='NER annotator'
+    )
     parser.add_argument(
         dest='input', action='store',
         type=str, help='path to the training text file'
@@ -73,6 +74,10 @@ def parse_args():
     parser.add_argument(
         '-n', '--config-model', dest='config_model', action='store',
         type=str, help='name of the model to load from the config file'
+    )
+    parser.add_argument(
+        '-p', '--pickle', dest='pickle', action='store_true',
+        help='whether or not to save a model-specific pickle file'
     )
     return parser
 
@@ -124,7 +129,8 @@ def main():
         app = QApplication(sys.argv)
         app.setStyleSheet(ner_annotator.STYLE)
         window = ner_annotator.NERAnnotator(
-            input_file, args.output, entities, args.model
+            input_file, args.output, entities,
+            model_path=args.model, save_pickle=args.pickle
         )
         window.show()
         sys.exit(app.exec_())

@@ -68,7 +68,7 @@ class NERModel(object):
         '''
         raise NotImplementedError
 
-    def from_json(self, train_json):
+    def from_json(self, annotations):
         '''
         Convert JSON data to model data
         '''
@@ -106,12 +106,12 @@ class SpaCyNERModel(NERModel):
             })
         return entities
 
-    def from_json(self, train_json):
+    def from_json(self, annotations):
         '''
         Convert JSON data to SpaCy data
         '''
         train_data = []
-        for data in train_json:
+        for data in annotations:
             ents = [tuple(entity) for entity in data['entities']]
             train_data.append((data['content'], {'entities': ents}))
         return train_data
