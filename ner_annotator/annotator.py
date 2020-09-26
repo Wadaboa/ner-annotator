@@ -1,11 +1,8 @@
 '''
-NER annotator
+Define the main window
 '''
 
 
-import sys
-import os
-import argparse
 import json
 import copy
 from functools import partial
@@ -23,51 +20,13 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
-    QAbstractItemView,
-    QApplication
+    QAbstractItemView
 )
-from PyQt5.QtCore import Qt, QEvent, QFile, QSize
+from PyQt5.QtCore import Qt, QEvent, QSize
 from PyQt5.QtGui import QIcon
 import spacy
 
-
-# Input/output formats
-VALID_IN_FMT = ('.txt')
-VALID_OUT_FMT = ('.json')
-
-# Output table labels
-ENTITY_LABEL = 'Entity'
-VALUE_LABEL = 'Value'
-SELECTION_START_LABEL = 'Selection start'
-SELECTION_END_LABEL = 'Selection end'
-
-# CSS
-STYLE = ""
-STYLE_FILE = QFile("style.qss")
-if STYLE_FILE.open(QFile.ReadOnly):
-    STYLE = STYLE_FILE.readAll().data().decode()
-
-# Style
-ICON_SIZE = 64
-
-
-def is_file_valid(path, valid_fmts):
-    '''
-    Check if the given file is valid
-    '''
-    if not os.path.isfile(path):
-        raise Exception(
-            'The input path you entered does not exist or is not a file'
-        )
-
-    _, file_extension = os.path.splitext(path)
-    if file_extension not in valid_fmts:
-        raise Exception(
-            'The input file you entered has an invalid extension. '
-            f'Please enter a file with one of the following formats: {VALID_IN_FMT}'
-        )
-
-    return True
+import ner_annotator
 
 
 def show_dialog(dialog_type, title, text, informative=''):
@@ -91,7 +50,7 @@ class NERAnnotator(QMainWindow):
         # Window settings
         QMainWindow.__init__(self)
         self.resize(1200, 800)
-        self.setWindowTitle(self.__class__.__name__)
+        self.setWindowTitle(ner_annotator.WINDOW_TITLE)
         self.setFocusPolicy(Qt.StrongFocus)
 
         # Instance variables
@@ -108,7 +67,6 @@ class NERAnnotator(QMainWindow):
 
         # Main layout
         self.central_widget = QWidget(self)
-        self.central_widget.setStyleSheet(STYLE)
         self.main_layout = QHBoxLayout(self.central_widget)
         self.left_widget = QWidget(self.central_widget)
         self.left_layout = QVBoxLayout(self.left_widget)
@@ -138,10 +96,10 @@ class NERAnnotator(QMainWindow):
             QSizePolicy.Fixed, QSizePolicy.Fixed
         )
         self.output_table_labels = {
-            ENTITY_LABEL: 0,
-            VALUE_LABEL: 1,
-            SELECTION_START_LABEL: 2,
-            SELECTION_END_LABEL: 3
+            ner_annotator.ENTITY_LABEL: 0,
+            ner_annotator.VALUE_LABEL: 1,
+            ner_annotator.SELECTION_START_LABEL: 2,
+            ner_annotator.SELECTION_END_LABEL: 3
         }
         self.output_table = QTableWidget(
             0, len(self.output_table_labels), self.left_widget
@@ -154,13 +112,13 @@ class NERAnnotator(QMainWindow):
         )
         self.output_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.output_table.horizontalHeader().setSectionResizeMode(
-            self.output_table_labels[ENTITY_LABEL], QHeaderView.Stretch
+            self.output_table_labels[ner_annotator.ENTITY_LABEL], QHeaderView.Stretch
         )
         self.output_table.horizontalHeader().setSectionResizeMode(
-            self.output_table_labels[SELECTION_START_LABEL], QHeaderView.ResizeToContents
+            self.output_table_labels[ner_annotator.SELECTION_START_LABEL], QHeaderView.ResizeToContents
         )
         self.output_table.horizontalHeader().setSectionResizeMode(
-            self.output_table_labels[SELECTION_END_LABEL], QHeaderView.ResizeToContents
+            self.output_table_labels[ner_annotator.SELECTION_END_LABEL], QHeaderView.ResizeToContents
         )
         self.left_layout.addWidget(self.content_label, 0, Qt.AlignCenter)
         self.left_layout.addWidget(self.content_text)
@@ -170,28 +128,28 @@ class NERAnnotator(QMainWindow):
 
         # Left bottom layout
         self.prev_button = self.set_button(
-            icon_path='img/previous.png',
+            icon_path=ner_annotator.PREV_ICON_PATH,
             function=self.prev,
             parent=self.left_bottom_widget
         )
         if self.model is not None:
             self.classify_button = self.set_button(
-                icon_path='img/categorize.png',
+                icon_path=ner_annotator.CLASSIFY_ICON_PATH,
                 function=self.classify,
                 parent=self.left_bottom_widget
             )
         self.next_button = self.set_button(
-            icon_path='img/next.png',
+            icon_path=ner_annotator.NEXT_ICON_PATH,
             function=self.next,
             parent=self.left_bottom_widget
         )
         self.skip_button = self.set_button(
-            icon_path='img/skip.png',
+            icon_path=ner_annotator.SKIP_ICON_PATH,
             function=self.skip,
             parent=self.left_bottom_widget
         )
         self.save_button = self.set_button(
-            icon_path='img/save.png',
+            icon_path=ner_annotator.SAVE_ICON_PATH,
             function=self.stop,
             parent=self.left_bottom_widget
         )
@@ -239,7 +197,9 @@ class NERAnnotator(QMainWindow):
         btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         btn.clicked.connect(function)
         btn.setIcon(QIcon(icon_path))
-        btn.setIconSize(QSize(ICON_SIZE, ICON_SIZE))
+        btn.setIconSize(
+            QSize(ner_annotator.ICON_SIZE, ner_annotator.ICON_SIZE)
+        )
         return btn
 
     def skip(self):
@@ -303,13 +263,13 @@ class NERAnnotator(QMainWindow):
         entities = []
         for i in range(self.output_table.rowCount()):
             ent = self.output_table.item(
-                i, self.output_table_labels[ENTITY_LABEL]
+                i, self.output_table_labels[ner_annotator.ENTITY_LABEL]
             ).text()
             ss = self.output_table.item(
-                i,  self.output_table_labels[SELECTION_START_LABEL]
+                i,  self.output_table_labels[ner_annotator.SELECTION_START_LABEL]
             ).text()
             se = self.output_table.item(
-                i,  self.output_table_labels[SELECTION_END_LABEL]
+                i,  self.output_table_labels[ner_annotator.SELECTION_END_LABEL]
             ).text()
             if ent and ss.isdigit() and se.isdigit():
                 entities.append([int(ss), int(se), ent])
@@ -415,22 +375,22 @@ class NERAnnotator(QMainWindow):
             self.output_table.insertRow(rows)
             self.output_table.setItem(
                 rows,
-                self.output_table_labels[ENTITY_LABEL],
+                self.output_table_labels[ner_annotator.ENTITY_LABEL],
                 QTableWidgetItem(entity)
             )
             self.output_table.setItem(
                 rows,
-                self.output_table_labels[VALUE_LABEL],
+                self.output_table_labels[ner_annotator.VALUE_LABEL],
                 QTableWidgetItem(value)
             )
             self.output_table.setItem(
                 rows,
-                self.output_table_labels[SELECTION_START_LABEL],
+                self.output_table_labels[ner_annotator.SELECTION_START_LABEL],
                 QTableWidgetItem(str(selection_start))
             )
             self.output_table.setItem(
                 rows,
-                self.output_table_labels[SELECTION_END_LABEL],
+                self.output_table_labels[ner_annotator.SELECTION_END_LABEL],
                 QTableWidgetItem(str(selection_end))
             )
             self.output_table.resizeRowsToContents()
@@ -468,99 +428,3 @@ class NERAnnotator(QMainWindow):
                 event.accept()
             else:
                 event.ignore()
-
-
-def find_config_entities(config_json, config_model):
-    '''
-    Return the config model entities, given the config json
-    and the config model name
-    '''
-    models = config_json['models']
-    for model in models:
-        if model['name'] == config_model:
-            return model['entities']
-    return None
-
-
-def parse_args():
-    '''
-    CLI argument parser
-    '''
-    parser = argparse.ArgumentParser(
-        prog='ner-annotator', description='NER annotator')
-    parser.add_argument(
-        dest='input', action='store',
-        type=str, help='path to the training text file'
-    )
-    parser.add_argument(
-        '-e', '--entities', dest='entities', action='store', nargs='+',
-        type=str, help='list of entities to be classified'
-    )
-    parser.add_argument(
-        '-m', '--model', dest='model', action='store',
-        type=str, help='path to an existing NER model'
-    )
-    parser.add_argument(
-        '-o', '--output', dest='output', action='store',
-        type=str, help='path to the output file'
-    )
-    parser.add_argument(
-        '-c', '--config', dest='config', action='store',
-        type=str, help='path to the config file'
-    )
-    parser.add_argument(
-        '-n', '--config-model', dest='config_model', action='store',
-        type=str, help='name of the model to load from the config file'
-    )
-    return parser
-
-
-if __name__ == "__main__":
-    parser = parse_args()
-    args = parser.parse_args()
-
-    if is_file_valid(args.input, VALID_IN_FMT):
-        input_file = open(args.input, 'r').read().splitlines()
-        if args.output is None:
-            args.output = (
-                os.path.abspath(os.path.join(
-                    os.path.dirname(args.input), 'output.json'
-                ))
-            )
-        elif not is_file_valid(args.output, VALID_OUT_FMT):
-            raise
-        if args.model is not None and not os.path.exists(args.model):
-            raise Exception(
-                'The given model does not exist'
-            )
-        entities = args.entities
-        if args.config is not None:
-            if not os.path.exists(args.config):
-                raise Exception(
-                    'The given config file does not exist'
-                )
-            if args.config_model is None:
-                raise Exception(
-                    'You have to enter the name of the config model to use'
-                )
-            with open(args.config, 'r') as f:
-                data = f.read()
-            config_json = json.loads(data)
-            entities = find_config_entities(config_json, args.config_model)
-            if entities is None:
-                raise Exception(
-                    'The config model name you entered is not valid'
-                )
-        if entities is None:
-            raise Exception(
-                'You have to insert entities manually or use a config file'
-            )
-
-        QApplication.setStyle("fusion")
-        app = QApplication(sys.argv)
-        app.setStyleSheet(STYLE)
-        window = NERAnnotator(
-            input_file, args.output, entities, args.model
-        )
-        window.show()
-        sys.exit(app.exec_())

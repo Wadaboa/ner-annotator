@@ -2,7 +2,7 @@
 
 This repository contains a NER utility to annotate text, given some entities.
 
-![GUI](img/gui.png)
+![GUI](assets/img/gui.png)
 
 ## Installation
 
@@ -16,6 +16,7 @@ pip install -r requirements.txt
 This will install the required dependencies (mainly `PyQt5`).
 
 ## Usage
+
 To run this utility, make sure you are in the project's root directory and execute the following command:
 
 ```bash
@@ -39,8 +40,9 @@ python3 annotator.py '~/Desktop/train.txt' -e 'BirthDate' 'Name' -m '~/Desktop/N
 Currently, only `SpaCy` models are supported.
 
 ## Config file
+
 In order to have a faster annotation experience, you can save your model entities names to reuse them the next time you are going to need this tool.\
-To do that, you need to create a `.json` file (see [config.json](`config.json`)), with a schema like the following:
+To do that, you need to create a `.json` file (see [assets/json/config.json](`config.json`)), with a schema like the following:
 
 ```json
 {
@@ -70,23 +72,17 @@ This bash command will be the equivalent in this example:
 python3 annotator.py '~/Desktop/train.txt' -e 'entity-1-1' 'entity-1-2' 'entity-1-3'
 ```
 
-
 ## Output
+
 The utility software will output a `.json` file with the following schema:
 
 ```json
 [
 	{
 		"content": "text",
-		"entities": [
-			[
-				0,
-				1,
-				"entity"
-			]
-		]
+		"entities": [[0, 1, "entity"]]
 	}
 ]
 ```
 
-You can convert this output into the specific format required by your NER model by implementing a function inside the `converter.py` file. Currently, only the `SpaCy` model conversion is provided.  
+You can convert this output into the specific format required by your NER model by implementing a function inside the `converter.py` file. Currently, only the `SpaCy` model conversion is provided.
