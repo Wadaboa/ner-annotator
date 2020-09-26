@@ -30,6 +30,15 @@ class NERModel(object):
         else:
             self.model = self._load_model(self.model_path)
 
+        if self.model is None:
+            raise Exception(
+                'The given model could not be loaded'
+            )
+        if self.model is not None and not self._is_ner_model():
+            raise Exception(
+                'The given model is not a NER model'
+            )
+
     @classmethod
     def _load_model(cls, model_path):
         '''
@@ -38,6 +47,12 @@ class NERModel(object):
         or that the given model cannot be loaded by that library
         '''
         raise NotImplementedError
+
+    def _is_ner_model(self):
+        '''
+        Check if the currently loaded model is a NER model
+        '''
+        return True
 
     def classify(self, text):
         '''
@@ -72,6 +87,12 @@ class SpaCyNERModel(NERModel):
             return spacy.load(model_path)
         except:
             return None
+
+    def _is_ner_model(self):
+        for pipe, _ in self.model.pipeline:
+            if pipe == 'ner':
+                return True
+        return False
 
     def classify(self, text):
         entities = []
