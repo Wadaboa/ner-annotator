@@ -195,7 +195,6 @@ class NERAnnotator(QMainWindow):
             function=self.stop,
             parent=self.left_bottom_widget
         )
-
         self.left_bottom_layout.addWidget(self.prev_button)
         if self.model is not None:
             self.left_bottom_layout.addWidget(self.classify_button)
