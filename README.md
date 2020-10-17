@@ -1,3 +1,7 @@
+[![Downloads](https://pepy.tech/badge/ner-annotator)](https://pepy.tech/project/ner-annotator)
+[![Python](https://img.shields.io/pypi/pyversions/ner-annotator)](https://img.shields.io/pypi/pyversions/ner-annotator)
+[![PyPy](https://img.shields.io/pypi/v/ner-annotator)](https://img.shields.io/pypi/v/ner-annotator)
+
 # Named Entity Recognition Annotator
 
 This repository contains a NER utility to annotate text, given some entities.
