@@ -13,11 +13,11 @@ from PyQt5.QtWidgets import QApplication
 import ner_annotator
 
 
-def is_file_valid(path, valid_fmts):
+def is_file_valid(path, valid_fmts, output=False):
     '''
     Check if the given file is valid
     '''
-    if not os.path.isfile(path):
+    if not os.path.isfile(path) and not output:
         raise Exception(
             'The input path you entered does not exist or is not a file'
         )
@@ -94,7 +94,7 @@ def main():
                     os.path.dirname(args.input), 'output.json'
                 ))
             )
-        elif not is_file_valid(args.output, ner_annotator.VALID_OUT_FMT):
+        elif not is_file_valid(args.output, ner_annotator.VALID_OUT_FMT, output=True):
             raise Exception(
                 f'The output file has an invalid extension: choose between {ner_annotator.VALID_OUT_FMT}'
             )
